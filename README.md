@@ -61,5 +61,5 @@ This is a web-based **Investment Portfolio Management Application** that allows 
 
 ### **1. Clone the Repository**
 ```bash
-git clone https://github.com/milankaraja/investment-portfolio-app.git
+git clone https://github.com/milankaraja/InvestmentApp.git
 cd investment-portfolio-app
