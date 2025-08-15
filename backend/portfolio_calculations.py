@@ -13,6 +13,8 @@ import json
 from datetime import datetime, date, timedelta
 
 from scipy.optimize import minimize
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive Agg backend
 import matplotlib.pyplot as plt
 import seaborn as sns
 import io
