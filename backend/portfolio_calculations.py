@@ -10,7 +10,7 @@ import statistics
 import sys
 import json
 
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
@@ -168,9 +168,27 @@ class Portfolio:
 
         for date1 in dates_oneyear:
             assets_on_date = {}
-            date1_dt = datetime.fromisoformat(date1)  # Convert date1 to datetime object
+            # Convert date1 to timezone-aware datetime object
+            if isinstance(date1, str):
+                date1_dt = datetime.fromisoformat(date1)
+                if date1_dt.tzinfo is None:
+                    date1_dt = date1_dt.replace(tzinfo=timezone.utc)
+            else:
+                date1_dt = date1
+                if date1_dt.tzinfo is None:
+                    date1_dt = date1_dt.replace(tzinfo=timezone.utc)
+            
             for trade in self.trades:
-                if trade.date <= date1_dt:
+                # Ensure trade.date is timezone-aware
+                trade_date = trade.date
+                if hasattr(trade_date, 'tzinfo') and trade_date.tzinfo is None:
+                    trade_date = trade_date.replace(tzinfo=timezone.utc)
+                elif isinstance(trade_date, str):
+                    trade_date = datetime.fromisoformat(trade_date)
+                    if trade_date.tzinfo is None:
+                        trade_date = trade_date.replace(tzinfo=timezone.utc)
+                
+                if trade_date <= date1_dt:
                     if trade.symbol in assets_on_date:
                         assets_on_date[trade.symbol] += trade.quantity
                     else:

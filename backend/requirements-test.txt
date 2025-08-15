@@ -1,0 +1,48 @@
+# Test Requirements for InvestmentApp Backend
+# Install with: pip install -r requirements-test.txt
+
+# Core testing framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# Flask testing utilities
+pytest-flask>=1.2.0
+
+# Mock and testing utilities
+mock>=4.0.3
+factory-boy>=3.2.1
+faker>=18.0.0
+
+# Database testing
+pytest-postgresql>=4.1.1
+sqlalchemy-utils>=0.40.0
+
+# HTTP testing
+requests-mock>=1.10.0
+responses>=0.23.0
+
+# Coverage reporting
+coverage>=7.0.0
+
+# Security testing
+bandit>=1.7.5
+safety>=2.3.0
+
+# Performance testing
+pytest-benchmark>=4.0.0
+
+# Linting and code quality (optional for testing)
+flake8>=6.0.0
+black>=23.0.0
+isort>=5.12.0
+
+# Documentation testing
+pytest-doctest>=0.0.1
+
+# Parallel test execution
+pytest-xdist>=3.2.0
+
+# Test reporting
+pytest-html>=3.1.0
+pytest-json-report>=1.5.0

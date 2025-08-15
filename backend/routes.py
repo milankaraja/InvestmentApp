@@ -23,22 +23,60 @@ def load_user(user_id):
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
-    hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-    new_user = User(username=data['username'], password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({"message": "User registered successfully"}), 201
+    
+    # Validate required fields
+    if not data:
+        return jsonify({"message": "No data provided"}), 400
+    
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username:
+        return jsonify({"message": "Username is required"}), 400
+    if not password:
+        return jsonify({"message": "Password is required"}), 400
+    
+    # Check if username already exists
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        return jsonify({"message": "Username already exists"}), 409
+    
+    try:
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+        new_user = User(username=username, password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({"message": "User registered successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Registration failed: {str(e)}"}), 500
 
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
-    user = User.query.filter_by(username=data['username']).first()
-    if user and bcrypt.check_password_hash(user.password, data['password']):
-        login_user(user)
-        print("User ID in session:", session.get('_user_id'))  # Debug
-        print("Session after login:", dict(session))
-        return jsonify({"message": "Login successful"}), 200
-    return jsonify({"message": "Login failed"}), 401
+    
+    # Validate required fields
+    if not data:
+        return jsonify({"message": "No data provided"}), 400
+    
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username:
+        return jsonify({"message": "Username is required"}), 400
+    if not password:
+        return jsonify({"message": "Password is required"}), 400
+    
+    try:
+        user = User.query.filter_by(username=username).first()
+        if user and bcrypt.check_password_hash(user.password, password):
+            login_user(user)
+            print("User ID in session:", session.get('_user_id'))  # Debug
+            print("Session after login:", dict(session))
+            return jsonify({"message": "Login successful"}), 200
+        return jsonify({"message": "Invalid username or password"}), 401
+    except Exception as e:
+        return jsonify({"message": f"Login failed: {str(e)}"}), 500
 
 @app.route('/logout', methods=['POST'])
 @login_required
@@ -142,23 +180,35 @@ def get_stocks():
 @login_required
 def add_to_portfolio():
     data = request.json
-    #user_id = data.get('user_id')
+    
+    # Validate required fields
+    if not data:
+        return jsonify({"message": "No data provided"}), 400
+    
     stock_symbol = data.get('stock_symbol')
     quantity = data.get('quantity')
     purchase_price = data.get('purchase_price')
     date_str = data.get('date')
-    # Convert date string to datetime object
+    
+    if not stock_symbol:
+        return jsonify({"message": "Stock symbol is required"}), 400
+    if not quantity:
+        return jsonify({"message": "Quantity is required"}), 400
+    if not purchase_price:
+        return jsonify({"message": "Purchase price is required"}), 400
+    
+    # Convert date string to timezone-aware datetime object
     if date_str:
-        date = datetime.fromisoformat(date_str)
+        try:
+            date = datetime.fromisoformat(date_str)
+            if date.tzinfo is None:
+                date = date.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return jsonify({"message": "Invalid date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)"}), 400
     else:
         date = datetime.now(timezone.utc)
-    
-    #date = data.get('date', datetime.now(timezone.utc))
 
     user = current_user
-    #user = User.query.get(user_id)
-    #if not user:
-        #return jsonify({"message": "User not found"}), 404
 
     stock = Company.query.filter_by(company=stock_symbol).first()
     if not stock:
@@ -170,17 +220,20 @@ def add_to_portfolio():
         db.session.add(portfolio)
         db.session.commit()
 
-    portfolio_stock = PortfolioStock(
-        portfolio_id=portfolio.id,
-        company_id=stock.Company_ID,
-        quantity=quantity,
-        purchase_price=purchase_price,
-        date=date  # Add this line
-    )
-    db.session.add(portfolio_stock)
-    db.session.commit()
-
-    return jsonify({"message": "Stock added to portfolio"}), 201
+    try:
+        portfolio_stock = PortfolioStock(
+            portfolio_id=portfolio.id,
+            company_id=stock.Company_ID,
+            quantity=quantity,
+            purchase_price=purchase_price,
+            date=date
+        )
+        db.session.add(portfolio_stock)
+        db.session.commit()
+        return jsonify({"message": "Stock added to portfolio"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Failed to add stock to portfolio: {str(e)}"}), 500
 
 
 @app.route('/api/portfolio/delete/<int:portfolio_stock_id>', methods=['DELETE'])
@@ -199,6 +252,10 @@ def delete_from_portfolio(portfolio_stock_id):
 @login_required
 def update_portfolio(portfolio_stock_id):
     data = request.json
+    
+    if not data:
+        return jsonify({"message": "No data provided"}), 400
+    
     quantity = data.get('quantity')
     purchase_price = data.get('purchase_price')
     date_str = data.get('date')
@@ -207,16 +264,25 @@ def update_portfolio(portfolio_stock_id):
     if not portfolio_stock:
         return jsonify({"message": "Stock not found in portfolio"}), 404
 
-    portfolio_stock.quantity = quantity
-    portfolio_stock.purchase_price = purchase_price
-    if date_str:
-        try:
-            portfolio_stock.date = datetime.fromisoformat(date_str)
-        except ValueError:
-            return jsonify({"message": "Invalid date format"}), 400
-    db.session.commit()
-
-    return jsonify({"message": "Stock updated in portfolio"}), 200    
+    try:
+        if quantity is not None:
+            portfolio_stock.quantity = quantity
+        if purchase_price is not None:
+            portfolio_stock.purchase_price = purchase_price
+        if date_str:
+            try:
+                date = datetime.fromisoformat(date_str)
+                if date.tzinfo is None:
+                    date = date.replace(tzinfo=timezone.utc)
+                portfolio_stock.date = date
+            except ValueError:
+                return jsonify({"message": "Invalid date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)"}), 400
+        
+        db.session.commit()
+        return jsonify({"message": "Stock updated in portfolio"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Failed to update portfolio: {str(e)}"}), 500    
 """
 @app.route('/api/portfolio/<int:user_id>', methods=['GET'])
 @login_required
