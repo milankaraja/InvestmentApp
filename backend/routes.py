@@ -15,6 +15,17 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
 
+# Handle preflight OPTIONS requests
+@app.before_request
+def handle_preflight():
+    print(f"DEBUG: Request received - Method: {request.method}, URL: {request.url}, Path: {request.path}")
+    if request.method == "OPTIONS":
+        response = jsonify()
+        response.headers.add("Access-Control-Allow-Origin", request.headers.get('Origin', '*'))
+        response.headers.add('Access-Control-Allow-Headers', "Content-Type,Authorization")
+        response.headers.add('Access-Control-Allow-Methods', "GET,PUT,POST,DELETE,OPTIONS")
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -179,6 +190,7 @@ def get_stocks():
 @app.route('/api/portfolio/add', methods=['POST'])
 @login_required
 def add_to_portfolio():
+    print(f"DEBUG: add_to_portfolio called! Method: {request.method}, URL: {request.url}")
     data = request.json
     
     # Validate required fields
@@ -210,9 +222,18 @@ def add_to_portfolio():
 
     user = current_user
 
+    # Find or create the company/stock
     stock = Company.query.filter_by(company=stock_symbol).first()
     if not stock:
-        return jsonify({"message": "Stock not found"}), 404
+        # Create a new company entry if it doesn't exist
+        # Find the highest existing Company_ID and increment it
+        max_id = db.session.query(db.func.max(Company.Company_ID)).scalar() or 0
+        stock = Company(
+            Company_ID=max_id + 1,
+            company=stock_symbol
+        )
+        db.session.add(stock)
+        db.session.commit()
 
     portfolio = Portfolio.query.filter_by(user_id=user.id).first()
     if not portfolio:

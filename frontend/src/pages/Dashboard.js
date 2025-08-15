@@ -1,22 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import Portfolio from '../components/Portfolio';
 import StockList from '../components/StockList';
+import AddToPortfolio from '../components/AddToPortfolio';
 
 function Dashboard() {
-  const [userStocks, setUserStocks] = useState([]);
+  const [portfolio, setPortfolio] = useState([]);
+  const [portfolioResults, setPortfolioResults] = useState(null);
   const [marketData, setMarketData] = useState([]);
 
   useEffect(() => {
-    // Fetch user's stocks and market data from backend
-    // This is a placeholder for an API call
-    fetchUserStocks().then(data => setUserStocks(data));
+    // Fetch market data from backend
     fetchMarketData().then(data => setMarketData(data));
   }, []);
-
-  const fetchUserStocks = async () => {
-    // Implement API call to get user's stocks
-    return [{ symbol: 'INFY' }, { symbol: 'TCS' }]; // Example data
-  };
 
   const fetchMarketData = async () => {
     // Implement API call to get current market data
@@ -26,7 +21,18 @@ function Dashboard() {
   return (
     <div className="dashboard">
       <h1>Your Investment Dashboard</h1>
-      <Portfolio stocks={userStocks} />
+      <AddToPortfolio 
+        portfolio={portfolio} 
+        setPortfolio={setPortfolio} 
+        portfolioResults={portfolioResults}
+        setPortfolioResults={setPortfolioResults} 
+      />
+      <Portfolio 
+        portfolio={portfolio} 
+        setPortfolio={setPortfolio}
+        portfolioResults={portfolioResults} 
+        setPortfolioResults={setPortfolioResults} 
+      />
       <StockList stocks={marketData} />
     </div>
   );

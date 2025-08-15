@@ -243,7 +243,7 @@ class Portfolio:
                 "value_at_risk": risk_metrics.value_at_risk(),
                 "value_at_risk_dollar": risk_metrics.value_at_risk_dollar(),
                 "monte_carlo_var": monte_carlo_var_dollar,
-                "monte_carlo_simulated_returns": simulated_returns.tolist(),  # For histogram
+                "monte_carlo_simulated_returns": simulated_returns.tolist() if hasattr(simulated_returns, 'tolist') else simulated_returns,  # For histogram
                 "rolling_std_dev": risk_metrics.rolling_std_dev()  # For volatility chart
             }
 
@@ -524,6 +524,18 @@ class PortfolioOptimizer:
 
     def optimize(self, method='sharpe', cash_to_invest=0, target_return=None, risk_aversion=1.0):
         num_assets = len(self.stock_names)
+        
+        # Handle empty portfolio case
+        if num_assets == 0:
+            return {
+                'weights': [],
+                'expected_return': 0,
+                'volatility': 0,
+                'sharpe_ratio': 0,
+                'success': False,
+                'message': 'No assets in portfolio to optimize'
+            }
+        
         constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
         bounds = tuple((0, 1) for _ in range(num_assets))
         initial_guess = np.array([1.0 / num_assets] * num_assets)
@@ -682,6 +694,42 @@ class OutputForPHP:
         self.portfolio.add_trades(trade_data)
         portfolioOutput = PortfolioOutput(self.portfolio, self.currency)
         output = portfolioOutput.portfolio_net()
+        
+        # Handle empty portfolio case
+        if not output[0] or not any(output[0].values()):
+            return {
+                "dates": [],
+                "prices": [],
+                "risk_metrics": {
+                    "beta": 0,
+                    "volatility": 0,
+                    "max": 0,
+                    "min": 0,
+                    "sharpe_ratio": 0,
+                    "sortino_ratio": 0,
+                    "value_at_risk": 0,
+                    "value_at_risk_dollar": 0,
+                    "monte_carlo_var": 0,
+                    "monte_carlo_simulated_returns": [],
+                    "rolling_std_dev": []
+                },
+                "portfolio_consolidated": [],
+                "portfolio_purchase_price": [],
+                "portfolio_stock_names": [],
+                "portfolio_current_value": [],
+                "price_history": {},
+                "stock_quantity": [],
+                "optimizations": {method: {
+                    'weights': [],
+                    'expected_return': 0,
+                    'volatility': 0,
+                    'sharpe_ratio': 0,
+                    'success': False,
+                    'message': 'No assets in portfolio to optimize'
+                } for method in ['sharpe', 'min_variance', 'max_return', 'sortino', 'information_ratio',
+                               'max_drawdown', 'target_return', 'utility', 'cvar', 'diversification']}
+            }
+        
         output_currentValue = portfolioOutput.portfolio_daily_value()
         output_dailyvalues2 = portfolioOutput.portfolio_value_date_rs()
         output_dailyvalues = portfolioOutput.portfolio_daily_values_oneyear()

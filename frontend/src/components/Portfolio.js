@@ -26,11 +26,24 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
         const response = await axios.get(`${backendUrl}/api/portfolio`, { withCredentials: true });
         const data = response.data;
         console.log('API Response:', data);
-        setPortfolio(response.data.stocks_list);
-        setPortfolioResults(response.data.portfolio_data);
+        
+        // Add null checks before setting state
+        if (data && data.stocks_list) {
+          setPortfolio(data.stocks_list);
+        } else {
+          setPortfolio([]);
+        }
+        
+        if (data && data.portfolio_data) {
+          setPortfolioResults(data.portfolio_data);
+        } else {
+          setPortfolioResults(null);
+        }
       } catch (error) {
         console.error('Error fetching portfolio:', error);
         setMessage('Error fetching portfolio');
+        setPortfolio([]);
+        setPortfolioResults(null);
       }
     };
 
@@ -98,9 +111,13 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
       const response = await axios.delete(`${backendUrl}/api/portfolio/delete/${portfolioStockId}`, { withCredentials: true });
       if (response.status === 200) {
         setMessage('Stock removed from portfolio');
-        setPortfolio(portfolio.filter(stock => stock.id !== portfolioStockId));
+        if (portfolio && Array.isArray(portfolio)) {
+          setPortfolio(portfolio.filter(stock => stock.id !== portfolioStockId));
+        }
         const updatedResults = await axios.get(`${backendUrl}/api/portfolio`, { withCredentials: true });
-        setPortfolioResults(updatedResults.data.portfolio_data);
+        if (updatedResults.data && updatedResults.data.portfolio_data) {
+          setPortfolioResults(updatedResults.data.portfolio_data);
+        }
       } else {
         setMessage('Failed to remove stock from portfolio');
       }
@@ -120,14 +137,18 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
       }, { withCredentials: true });
       if (response.status === 200) {
         setMessage('Stock updated in portfolio');
-        setPortfolio(portfolio.map(stock =>
-          stock.id === portfolioStockId
-            ? { ...stock, quantity: editQuantity, purchase_price: editPurchasePrice, date: editDate }
-            : stock
-        ));
+        if (portfolio && Array.isArray(portfolio)) {
+          setPortfolio(portfolio.map(stock =>
+            stock.id === portfolioStockId
+              ? { ...stock, quantity: editQuantity, purchase_price: editPurchasePrice, date: editDate }
+              : stock
+          ));
+        }
         setEditStockId(null);
         const updatedResults = await axios.get(`${backendUrl}/api/portfolio`, { withCredentials: true });
-        setPortfolioResults(updatedResults.data.portfolio_data);
+        if (updatedResults.data && updatedResults.data.portfolio_data) {
+          setPortfolioResults(updatedResults.data.portfolio_data);
+        }
       } else {
         setMessage('Failed to update stock in portfolio');
       }
@@ -163,6 +184,9 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
 
   // Prepare pie chart data for optimizations
   const getPieChartData = (optimalWeights) => {
+    if (!optimalWeights || typeof optimalWeights !== 'object') {
+      return [];
+    }
     return Object.entries(optimalWeights).map(([name, value]) => ({
       name,
       value: value * 100, // Convert to percentage
@@ -203,7 +227,7 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
                     </tr>
                   </thead>
                   <tbody>
-                    {portfolio.map((stock) => (
+                    {portfolio && Array.isArray(portfolio) ? portfolio.map((stock) => (
                       <tr key={stock.id}>
                         <td>{stock.symbol}</td>
                         <td>
@@ -251,7 +275,11 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
                           <button onClick={() => handleDelete(stock.id)}>Delete</button>
                         </td>
                       </tr>
-                    ))}
+                    )) : (
+                      <tr>
+                        <td colSpan="5">No stocks in portfolio</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -414,7 +442,7 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
               <TabPanel key={tab.key}>
                 <div className="optimization-section">
                   <h3>{tab.label}</h3>
-                  {portfolioResults && portfolioResults.optimizations && portfolioResults.optimizations[tab.key] ? (
+                  {portfolioResults && portfolioResults.optimizations && portfolioResults.optimizations[tab.key] && portfolioResults.optimizations[tab.key].optimal_weights ? (
                     <div className="chart-container">
                       {/* Pie Chart */}
                       <div>
@@ -452,18 +480,18 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
                           <tbody>
                             <tr>
                               <td>Expected Return</td>
-                              <td>{(portfolioResults.optimizations[tab.key].expected_return * 100).toFixed(2)}%</td>
+                              <td>{((portfolioResults.optimizations[tab.key].expected_return || 0) * 100).toFixed(2)}%</td>
                             </tr>
                             <tr>
                               <td>Risk (Std Dev)</td>
-                              <td>{(portfolioResults.optimizations[tab.key].risk * 100).toFixed(2)}%</td>
+                              <td>{((portfolioResults.optimizations[tab.key].risk || 0) * 100).toFixed(2)}%</td>
                             </tr>
                           </tbody>
                         </table>
                       </div>
 
                       {/* Efficient Frontier */}
-                      {portfolioResults.optimizations[tab.key].visualizations.efficient_frontier && (
+                      {portfolioResults.optimizations[tab.key].visualizations && portfolioResults.optimizations[tab.key].visualizations.efficient_frontier && (
                         <div>
                           <h4>Efficient Frontier</h4>
                           <img
@@ -475,7 +503,7 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
                       )}
 
                       {/* Downside Histogram (Sortino) */}
-                      {portfolioResults.optimizations[tab.key].visualizations.downside_histogram && (
+                      {portfolioResults.optimizations[tab.key].visualizations && portfolioResults.optimizations[tab.key].visualizations.downside_histogram && (
                         <div>
                           <h4>Downside Returns</h4>
                           <img
@@ -487,7 +515,7 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
                       )}
 
                       {/* Drawdown Chart (Max Drawdown) */}
-                      {portfolioResults.optimizations[tab.key].visualizations.drawdown_chart && (
+                      {portfolioResults.optimizations[tab.key].visualizations && portfolioResults.optimizations[tab.key].visualizations.drawdown_chart && (
                         <div>
                           <h4>Drawdown</h4>
                           <img
@@ -499,7 +527,7 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
                       )}
 
                       {/* CVaR Histogram */}
-                      {portfolioResults.optimizations[tab.key].visualizations.cvar_histogram && (
+                      {portfolioResults.optimizations[tab.key].visualizations && portfolioResults.optimizations[tab.key].visualizations.cvar_histogram && (
                         <div>
                           <h4>CVaR Histogram</h4>
                           <img

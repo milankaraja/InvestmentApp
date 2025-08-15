@@ -43,7 +43,7 @@ const AddToPortfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfoli
         }
 
         // Optionally, fetch updated portfolio results
-        const portfolioResponse = await axios.get(`${backendUrl}/api/portfolio/api/portfolio`, { withCredentials: true });
+        const portfolioResponse = await axios.get(`${backendUrl}/api/portfolio`, { withCredentials: true });
         setPortfolioResults(portfolioResponse.data.portfolio_data);
         setPortfolio(portfolioResponse.data.stocks_list);
 
