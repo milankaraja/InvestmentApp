@@ -39,7 +39,7 @@ const Portfolio = ({ portfolio, setPortfolio, portfolioResults, setPortfolioResu
 
   // Pie Chart Data for Basic Tab
   useEffect(() => {
-    if (portfolioResults && Array.isArray(portfolioResults.portfolio_stock_names) && Array.isArray(portfolioResults.portfolio_current_value)) {
+    if (portfolioResults && portfolioResults.portfolio_stock_names && Array.isArray(portfolioResults.portfolio_stock_names) && portfolioResults.portfolio_current_value && Array.isArray(portfolioResults.portfolio_current_value)) {
       setPieChartData(
         portfolioResults.portfolio_stock_names.map((name, idx) => ({
           name,

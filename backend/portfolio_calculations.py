@@ -227,7 +227,7 @@ class Portfolio:
                 "value_at_risk": risk_metrics.value_at_risk(),
                 "value_at_risk_dollar": risk_metrics.value_at_risk_dollar(),
                 "monte_carlo_var": monte_carlo_var_dollar,
-                "monte_carlo_simulated_returns": simulated_returns.tolist(),  # For histogram
+                "monte_carlo_simulated_returns": list(simulated_returns),  # For histogram
                 "rolling_std_dev": risk_metrics.rolling_std_dev()  # For volatility chart
             }
 
@@ -372,6 +372,8 @@ class RiskMetrics:
         if not self.price_array or len(self.price_array) < 2:
             return []
         returns = np.diff(self.price_array) / self.price_array[:-1]
+        if len(returns) < window:
+            window = len(returns)  # Adjust window size to match data size
         rolling_std = np.lib.stride_tricks.sliding_window_view(returns, window).std(axis=1)
         return rolling_std.tolist()  # Convert to list for JSON serialization
 
@@ -406,6 +408,13 @@ class PortfolioOutput:
         return values
     
     def optimize_portfolio(self, method='sharpe', cash_to_invest=0, target_return=None, risk_aversion=1.0):
+        if len(self.optimizer.stock_quantity) == 0:
+            raise ValueError("No assets available for optimization")
+         # Add default values of zeroes
+            self.optimizer.stock_quantity = pd.Series(index=self.stock_names, data=[0]*len(self.stock_names))
+            self.optimizer.current_prices = pd.Series(index=self.stock_names, data=[0]*len(self.stock_names))
+            self.optimizer.current_value = 0
+            self.optimizer.current_weights = pd.Series(index=self.stock_names, data=[0]*len(self.stock_names))
         return self.optimizer.optimize(method, cash_to_invest, target_return, risk_aversion)
 
 
@@ -510,6 +519,8 @@ class PortfolioOptimizer:
         num_assets = len(self.stock_names)
         constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
         bounds = tuple((0, 1) for _ in range(num_assets))
+        if num_assets ==0:
+            raise ValueError("No assets available for optimization")
         initial_guess = np.array([1.0 / num_assets] * num_assets)
 
         if method == 'sharpe':
